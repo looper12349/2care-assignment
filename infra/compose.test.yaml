@@ -1,0 +1,11 @@
+# Isolated verification ports; the normal local app can keep running.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:55432:5432"
+  conversation:
+    ports: !override
+      - "127.0.0.1:8101:8001"
+  web:
+    ports: !override
+      - "127.0.0.1:3100:3000"

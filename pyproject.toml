@@ -1,0 +1,44 @@
+[project]
+name = "clinic-agent"
+version = "0.1.0"
+description = "A guarded patient scheduling agent and LangSmith improvement loop"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "pydantic>=2.9,<3",
+  "langgraph>=1.0,<2",
+  "langgraph-checkpoint-sqlite>=3,<4",
+  "langchain>=1.0,<2",
+  "langchain-openai>=1.0,<2",
+  "langsmith>=0.4,<1",
+  "python-dotenv>=1.0,<2",
+  "httpx>=0.27,<1",
+  "psycopg[binary,pool]>=3.2,<4",
+  "langgraph-checkpoint-postgres>=3,<4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1", "ruff>=0.8,<1"]
+
+[project.scripts]
+clinic-agent = "clinic_agent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clinic_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

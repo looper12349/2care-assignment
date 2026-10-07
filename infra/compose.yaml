@@ -1,0 +1,156 @@
+name: carepath
+
+x-python-service: &python-service
+  image: carepath-python:local
+  build:
+    context: ..
+    dockerfile: infra/python.Dockerfile
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 15s
+  security_opt:
+    - no-new-privileges:true
+  healthcheck:
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 20s
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    init: true
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: carepath_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/docker to create database credentials}
+      CONVERSATION_DB_PASSWORD: ${CONVERSATION_DB_PASSWORD:?Database credentials are required}
+      SCHEDULING_DB_PASSWORD: ${SCHEDULING_DB_PASSWORD:?Database credentials are required}
+      EVALUATION_DB_PASSWORD: ${EVALUATION_DB_PASSWORD:?Database credentials are required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/10-domains.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U carepath_admin -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  scheduling:
+    <<: *python-service
+    command: [python, -m, uvicorn, services.scheduling.app:app, --host, 0.0.0.0, --port, "8002", --workers, "1"]
+    environment:
+      CLINIC_AGENT_DATA_DIR: /data
+      CLINIC_SERVICE_TOKEN: ${CLINIC_SERVICE_TOKEN:?Run scripts/docker to create local service credentials}
+      CLINIC_AGENT_FIXED_NOW: ${CLINIC_AGENT_FIXED_NOW:-}
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
+      SCHEDULING_DATABASE_URL: ${SCHEDULING_DATABASE_URL:?Scheduling database connection is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - scheduling-data:/data
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  evaluation:
+    <<: *python-service
+    command: [python, -m, uvicorn, services.evaluation.app:app, --host, 0.0.0.0, --port, "8003", --workers, "1"]
+    environment:
+      CLINIC_AGENT_DATA_DIR: /data
+      CLINIC_EVAL_DB: /data/evaluation.sqlite3
+      CLINIC_EVAL_OUTPUT_DIR: /data/evaluations
+      CLINIC_SERVICE_TOKEN: ${CLINIC_SERVICE_TOKEN:?Run scripts/docker to create local service credentials}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-carepath-synthetic}
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
+      EVALUATION_DATABASE_URL: ${EVALUATION_DATABASE_URL:?Evaluation database connection is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - evaluation-data:/data
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  conversation:
+    <<: *python-service
+    command: [python, -m, uvicorn, services.conversation.app:app, --host, 0.0.0.0, --port, "8001", --workers, "1"]
+    environment:
+      CLINIC_AGENT_DATA_DIR: /data
+      CLINIC_SERVICE_TOKEN: ${CLINIC_SERVICE_TOKEN:?Run scripts/docker to create local service credentials}
+      CLINIC_SESSION_SECRET: ${CLINIC_SESSION_SECRET:?Run scripts/docker to create local session credentials}
+      CLINIC_AGENT_FIXED_NOW: ${CLINIC_AGENT_FIXED_NOW:-}
+      CLINIC_AGENT_BEHAVIOR_VERSION: ${CLINIC_AGENT_BEHAVIOR_VERSION:-v1}
+      AGENT_MODEL: ${AGENT_MODEL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      CLINIC_ALLOW_TRACE_UPLOAD: "false"
+      LANGSMITH_TRACING: "false"
+      LANGCHAIN_TRACING_V2: "false"
+      SCHEDULING_URL: http://scheduling:8002
+      EVALUATION_URL: http://evaluation:8003
+      CONVERSATION_DATABASE_URL: ${CONVERSATION_DATABASE_URL:?Conversation database connection is required}
+      CHECKPOINT_DATABASE_URL: ${CHECKPOINT_DATABASE_URL:?Checkpoint database connection is required}
+      LANGGRAPH_STRICT_MSGPACK: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      scheduling:
+        condition: service_healthy
+      evaluation:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - conversation-data:/data
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  web:
+    image: carepath-web:local
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      CONVERSATION_URL: http://conversation:8001
+    depends_on:
+      conversation:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/config').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres-data:
+  conversation-data:
+  scheduling-data:
+  evaluation-data:

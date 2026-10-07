@@ -1,0 +1,16 @@
+export type Patient = { id: string; name: string };
+export type Config = { clinic_name: string; mode: string; patients: Patient[]; active_behavior_version: string; timezone?: string; langsmith_enabled?: boolean; evaluation_interpreter?: "demo" | "live"; evaluation_model_name?: string | null };
+export type Session = { token: string; identity: { patient_id?: string; role: string } };
+export type Message = { role: string; content: string };
+export type Slot = { slot_id: string; start_at: string; end_at?: string; provider_id?: string; provider_name: string; appointment_type: string; location: string; timezone?: string };
+export type Proposal = { proposal_id: string; request_revision: number; slot: Slot; expires_at?: string };
+export type Appointment = Omit<Slot, "slot_id"> & { slot_id?: string; appointment_id: string; operation_id?: string };
+export type Handoff = { ticket_id: string; patient_id: string; patient_name?: string; conversation_id?: string; reason: string; destination: string; status: "queued" | "accepted" | "resolved"; summary: string; created_at: string };
+export type Constraints = { appointment_type?: string | null; date?: string | null; after_hour?: number | null; before_hour?: number | null; provider_id?: string | null; timezone?: string };
+export type Conversation = { conversation_id: string; status: string; reply: string; options: Slot[]; proposal?: Proposal | null; appointment?: Appointment | null; handoff?: Handoff | null; constraints?: Constraints; behavior_version: string; messages?: Message[]; events?: unknown[] };
+export type Action = { action?: "select_slot" | "confirm" | "decline"; slot_id?: string; proposal_id?: string };
+export type ScenarioResult = { id: string; name: string; baseline: boolean; candidate: boolean; detail: string; baseline_passed?: number; candidate_passed?: number; total?: number };
+export type Experiment = { version: string; passed: number; total: number; resolution_rate: number; critical_violations: number; accepted?: boolean };
+export type Gate = { name: string; passed: boolean; detail: string };
+export type EvaluationReport = { generated_at: string; baseline: Experiment; candidate: Experiment; accepted?: boolean; gates: { accepted: boolean; checks: Gate[]; regressions?: string[]; promotion?: unknown }; scenarios: ScenarioResult[]; improvement: Record<string, unknown>; failures?: unknown[]; limitations: string[]; engine: { platform?: string; upload_results: boolean; actor: string; judge?: string }; dataset: { version: string; count: number; repetitions: number }; langsmith_url?: string; note?: string; files?: Record<string, string> };
+export type EvaluationJob = { job_id: string; status: string; report?: EvaluationReport; error?: string; message?: string; phase?: string };

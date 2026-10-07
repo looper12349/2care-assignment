@@ -1,0 +1,58 @@
+#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")/.."
+exec uv run --frozen --no-dev python - "$@" <<'PY'
+import os
+import shutil
+import sys
+from pathlib import Path
+from urllib.parse import quote
+
+from clinic_agent.cli import ROOT, local_environment
+
+if not shutil.which("docker"):
+    raise SystemExit("Install Docker with Docker Compose to start the containers.")
+
+environment = local_environment()
+for domain in ("conversation", "scheduling", "evaluation"):
+    key = domain.upper() + "_DATABASE_URL"
+    password = quote(environment[domain.upper() + "_DB_PASSWORD"], safe="")
+    if not environment.get(key):
+        environment[key] = f"postgresql://carepath_{domain}:{password}@postgres:5432/carepath_{domain}"
+if not environment.get("CHECKPOINT_DATABASE_URL"):
+    environment["CHECKPOINT_DATABASE_URL"] = environment["CONVERSATION_DATABASE_URL"]
+env_path = ROOT / ".data" / "compose.env"
+env_path.parent.mkdir(parents=True, exist_ok=True)
+keys = (
+    "CLINIC_SERVICE_TOKEN", "CLINIC_SESSION_SECRET", "CLINIC_AGENT_FIXED_NOW",
+    "CLINIC_AGENT_BEHAVIOR_VERSION", "AGENT_MODEL", "OPENAI_API_KEY",
+    "OPENAI_BASE_URL", "LANGSMITH_API_KEY", "LANGSMITH_PROJECT",
+    "POSTGRES_PASSWORD", "CONVERSATION_DB_PASSWORD", "SCHEDULING_DB_PASSWORD", "EVALUATION_DB_PASSWORD",
+    "CONVERSATION_DATABASE_URL", "SCHEDULING_DATABASE_URL", "EVALUATION_DATABASE_URL", "CHECKPOINT_DATABASE_URL",
+)
+lines = []
+for key in keys:
+    value = environment.get(key, "")
+    if "\n" in value or "\r" in value or "\0" in value:
+        raise SystemExit(f"{key} must be a single-line setting.")
+    # Single-quoted Compose env values do not interpolate dollar signs.
+    escaped = value.replace("'", "\\'")
+    lines.append(f"{key}='{escaped}'\n")
+
+temporary = env_path.with_suffix(".tmp")
+descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+os.fchmod(descriptor, 0o600)
+with os.fdopen(descriptor, "w") as stream:
+    stream.writelines(lines)
+temporary.replace(env_path)
+
+arguments = sys.argv[1:] or ["up", "--build"]
+if arguments[0] == "up" and "--build" not in arguments and "--no-build" not in arguments:
+    arguments.insert(1, "--build")
+if arguments[0] == "config" and "--quiet" not in arguments and "-q" not in arguments:
+    raise SystemExit("Use scripts/docker config --quiet to validate without printing credentials.")
+files = ["-f", str(ROOT / "infra" / "compose.yaml")]
+if environment.get("CAREPATH_TEST_STACK") == "true":
+    files.extend(["-f", str(ROOT / "infra" / "compose.test.yaml")])
+os.execvpe("docker", ["docker", "compose", "--env-file", str(env_path), *files, *arguments], environment)
+PY

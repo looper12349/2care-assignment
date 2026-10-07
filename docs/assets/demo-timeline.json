@@ -1,0 +1,18 @@
+{
+  "capture_source": "Real Safari captures of http://127.0.0.1:3100, PostgreSQL-backed Docker deployment",
+  "recorded_at": "2026-10-08T03:43:00+05:30",
+  "editing": "Crop browser chrome, resize, add explanatory captions, shorten pauses; application content is unchanged",
+  "browser_chrome_crop_px": 180,
+  "scenes": [
+    {"file": "01.png", "caption": "Start a conversation as a fictional patient", "duration_ms": 3000},
+    {"file": "02.png", "caption": "Find real available slots matching the patient's request", "duration_ms": 4000},
+    {"file": "03.png", "caption": "Preview the exact appointment; nothing is booked yet", "duration_ms": 4500},
+    {"file": "04.png", "caption": "Confirm and receive an authoritative booking reference", "duration_ms": 4500},
+    {"file": "05.png", "caption": "Save patient feedback without changing booking rules", "duration_ms": 3000},
+    {"file": "06.png", "caption": "Ask for a person and create a persisted staff ticket", "duration_ms": 3500},
+    {"file": "07.png", "caption": "Staff accepts the queued handoff for review", "duration_ms": 3000},
+    {"file": "08.png", "caption": "Start a fresh LangSmith evaluation: 22 scenarios x 3 runs", "duration_ms": 3000},
+    {"file": "11.png", "caption": "Inspect the held-out failure and the bounded recovery artifact", "duration_ms": 6500},
+    {"file": "09.png", "caption": "Verify improvement: 60/66 to 66/66, zero critical violations", "duration_ms": 6500}
+  ]
+}

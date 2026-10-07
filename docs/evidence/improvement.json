@@ -1,0 +1,25 @@
+{
+  "artifact_id": "slot-conflict-recovery-v2",
+  "parent_version": "v1",
+  "candidate_version": "v2",
+  "change_type": "approved_recovery_configuration",
+  "trigger": "SLOT_UNAVAILABLE",
+  "recovery_mode": "REFRESH_AND_RECONFIRM",
+  "max_refreshes": 1,
+  "preserve_hard_constraints": true,
+  "require_new_confirmation": true,
+  "source_failure_ids": [
+    "failure-01a11870-1476-74a1-a2a7-783db204f481",
+    "failure-01a11870-1c4f-7f33-978f-ee9e54c56411",
+    "failure-01a11870-2485-74e3-b4a6-3a6b7b76f327"
+  ],
+  "evidence_digest": "88be3226bcd17532205f564be070c86bf087b379f163200a285862670387741e",
+  "generator": "deterministic-evidence-to-allowlisted-rule",
+  "required_cases": [
+    "slot-conflict",
+    "slot-conflict-heldout",
+    "booking-timeout",
+    "booking-timeout-heldout"
+  ],
+  "status": "accepted"
+}
