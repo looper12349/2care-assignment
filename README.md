@@ -135,7 +135,7 @@ sequenceDiagram
     Web->>C: Confirmation + current proposal reference
     C->>C: Validate consent and persist operation reference
     C->>S: Book using the stable operation reference
-    S->>DB: Lock slot; commit appointment and receipt
+    S->>DB: Lock slot, commit appointment and receipt
     DB-->>S: Authoritative receipt
     alt Booking reply arrives
       S-->>C: BOOKED + appointment
